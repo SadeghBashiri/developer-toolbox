@@ -14,6 +14,7 @@ source "$TOOLBOX_DIR/lib/executor.sh"
 source "$TOOLBOX_DIR/lib/ui.sh"
 source "$TOOLBOX_DIR/lib/history.sh"
 source "$TOOLBOX_DIR/lib/saver.sh"
+source "$TOOLBOX_DIR/lib/doctor.sh"
 
 
 # --------------------------------------
@@ -281,6 +282,11 @@ case "${1:-}" in
 		prompt_add_command
 		exit $?
 		;;
+		
+	doctor)
+        doctor
+        exit $?
+        ;;
 
     help|--help|-h)
         show_help

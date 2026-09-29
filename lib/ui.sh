@@ -52,6 +52,7 @@ show_help() {
     echo "  dev category <name>         List commands by category"
 	echo "  dev add                     Add a new command"
     echo "  dev history                 Browse command history"
+	echo "  dev doctor                 	Check environment"
     echo "  dev help                    Show this help"
     echo
     echo "Commands:"
@@ -61,6 +62,7 @@ show_help() {
     echo "  category    List commands from a category"
 	echo "  add         Add a new command"
     echo "  history     Browse and rerun command history"
+	echo "  doctor      Check Toolbox environment"
     echo "  help        Show CLI help"
     echo
     echo "Examples:"
