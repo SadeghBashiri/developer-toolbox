@@ -15,6 +15,7 @@ source "$TOOLBOX_DIR/lib/ui.sh"
 source "$TOOLBOX_DIR/lib/history.sh"
 source "$TOOLBOX_DIR/lib/saver.sh"
 source "$TOOLBOX_DIR/lib/doctor.sh"
+source "$TOOLBOX_DIR/lib/sync.sh"
 
 
 # --------------------------------------
@@ -287,7 +288,12 @@ case "${1:-}" in
         doctor
         exit $?
         ;;
-
+	
+	sync)
+        sync_repository
+        exit $?
+        ;;
+		
     help|--help|-h)
         show_help
         ;;
