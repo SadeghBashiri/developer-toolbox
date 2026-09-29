@@ -1,0 +1,296 @@
+#!/usr/bin/env bash
+
+set -u
+
+TOOLBOX_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+source "$TOOLBOX_DIR/lib/config.sh"
+source "$TOOLBOX_DIR/lib/parser.sh"
+source "$TOOLBOX_DIR/lib/finder.sh"
+source "$TOOLBOX_DIR/lib/parameters.sh"
+source "$TOOLBOX_DIR/lib/editor.sh"
+source "$TOOLBOX_DIR/lib/security.sh"
+source "$TOOLBOX_DIR/lib/executor.sh"
+source "$TOOLBOX_DIR/lib/ui.sh"
+source "$TOOLBOX_DIR/lib/history.sh"
+source "$TOOLBOX_DIR/lib/saver.sh"
+
+
+# --------------------------------------
+# Command Mode
+# --------------------------------------
+
+run_command_mode() {
+
+    # --------------------------------------
+    # UI
+    # --------------------------------------
+
+    show_header
+
+    # --------------------------------------
+    # Select command
+    # --------------------------------------
+
+    SELECTED=$(select_command)
+
+    if [[ -z "$SELECTED" ]]; then
+        echo "No command selected."
+        exit 0
+    fi
+
+    FILE="$COMMANDS_DIR/$SELECTED"
+
+    show_selected "$SELECTED"
+
+    # --------------------------------------
+    # Execute Pipeline
+    # --------------------------------------
+
+    run_command_pipeline "$FILE"
+
+    exit $?
+
+}
+
+
+# --------------------------------------
+# History Mode
+# --------------------------------------
+
+run_history_mode() {
+
+    show_header
+
+    HISTORY_COMMAND=$(show_history)
+
+    if [[ -z "$HISTORY_COMMAND" ]]; then
+        echo "No history entry selected."
+        exit 0
+    fi
+
+    history_action "$HISTORY_COMMAND"
+
+    ACTION=$?
+
+    case "$ACTION" in
+
+        0)
+
+            echo
+            echo "Running history command..."
+            echo
+
+            execute_with_confirmation "$HISTORY_COMMAND"
+
+			EXIT_CODE=$?
+
+			record_history "$HISTORY_COMMAND" "$EXIT_CODE"
+
+            echo
+            echo "Exit code: $EXIT_CODE"
+
+            exit "$EXIT_CODE"
+
+            ;;
+
+        1)
+
+            EDITED_COMMAND=$(edit_command "$HISTORY_COMMAND")
+
+            echo
+            echo "--------------------------------------"
+            echo "Modified command:"
+            echo
+            echo "$EDITED_COMMAND"
+            echo "--------------------------------------"
+            echo
+
+            read -r -p "Execute this command? [y/N]: " ANSWER < /dev/tty
+
+            if [[ "$ANSWER" =~ ^[Yy]$ ]]; then
+
+                execute_command "$EDITED_COMMAND"
+
+                EXIT_CODE=$?
+
+                record_history "$EDITED_COMMAND" "$EXIT_CODE"
+
+                echo
+                echo "Exit code: $EXIT_CODE"
+
+                exit "$EXIT_CODE"
+
+            fi
+
+            echo
+            echo "Cancelled."
+
+            exit 0
+
+            ;;
+
+        2)
+
+            echo
+            echo "Cancelled."
+
+            exit 0
+
+            ;;
+
+    esac
+
+}
+
+# --------------------------------------
+# Search Mode
+# --------------------------------------
+
+run_search_mode() {
+
+    shift
+
+    local search_term="$*"
+
+    # --------------------------------------
+    # UI
+    # --------------------------------------
+
+    show_header
+
+    # --------------------------------------
+    # Search & Select
+    # --------------------------------------
+
+    SELECTED=$(select_search_command "$search_term")
+
+    if [[ -z "$SELECTED" ]]; then
+        echo "No command selected."
+        exit 0
+    fi
+
+    FILE="$COMMANDS_DIR/$SELECTED"
+
+    show_selected "$SELECTED"
+
+    # --------------------------------------
+    # Execute Pipeline
+    # --------------------------------------
+
+    run_command_pipeline "$FILE"
+
+    exit $?
+
+}
+
+run_direct_command() {
+
+    local command_name="$1"
+    shift
+
+    local file
+
+    file=$(find_command_file "$command_name")
+
+    if [[ -z "$file" ]]; then
+
+        echo
+        echo "Command not found:"
+        echo
+        echo "  $command_name"
+        echo
+
+        return 1
+
+    fi
+
+    parse_cli_parameters "$@" || return 1
+
+	validate_cli_parameters "$file" || return 1
+
+    show_header
+
+    show_selected "${file#$COMMANDS_DIR/}"
+
+    run_command_pipeline "$file"
+
+}
+
+# --------------------------------------
+# CLI
+# --------------------------------------
+
+case "${1:-}" in
+
+    "")
+        run_command_mode
+        ;;
+
+    run)
+		if [[ -z "${2:-}" ]]; then
+			echo "Command name is required."
+			echo
+			echo "Usage:"
+			echo "  dev run <command> [name=value ...]"
+			exit 1
+		fi
+
+		run_direct_command "$2" "${@:3}"
+
+		exit $?
+		;;
+
+	search)
+		if [[ $# -lt 2 ]]; then
+			echo "Search term is required."
+			echo
+			echo "Usage:"
+			echo "  dev search <term>"
+			exit 1
+		fi
+
+		run_search_mode "$@"
+		;;
+
+	list)
+		list_commands
+		;;
+
+	category)
+
+		if [[ -z "${2:-}" ]]; then
+
+			echo "Category is required."
+			echo
+			echo "Usage:"
+			echo "  dev category <name>"
+			exit 1
+
+		fi
+
+		list_category_commands "$2"
+		;;
+
+
+    history)
+        run_history_mode
+        ;;
+
+	add)
+		prompt_add_command
+		exit $?
+		;;
+
+    help|--help|-h)
+        show_help
+        ;;
+
+    *)
+        echo "Unknown command: $1"
+        echo
+        show_help
+        exit 1
+        ;;
+
+esac
